@@ -9,6 +9,7 @@ import os
 # 导入进程模块
 import multiprocessing
 import threading
+
 # 创建爬虫类
 class WangyiMusic(object):
     #创建请求方法 参数为要爬取的网址
