@@ -3,6 +3,50 @@ from bs4 import BeautifulSoup
 import json
 import xlwt
 import time
+import os
+# 导入进程模块
+import multiprocessing
+import threading
+
+
+class music163(object):
+
+    @staticmethod
+    def write_book_header(book_sheet, book_headers):
+        column = 0
+        for head in book_headers:
+            book_sheet.write(0, column, head)
+            column += 1
+
+    @staticmethod
+    def record_hot_comments(song_id, song_name, thread_name):
+        comments_url = 'https://music.163.com/weapi/v1/resource/comments/R_SO_4_' + song_id + '?csrf_token='
+        comments_hearder = {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36',
+            'referer': 'https://music.163.com/song?id=' + song_id
+        }
+        data = {
+            'params': 'FlmfdDay0U2q8ZBEDwVhmQ378fPm/SbVQJlwdXyIQ0UtypDWC4UXvOcg7w/cZOmROgBFpCkuw4+HpKue8euK34xsXyBgfK1n0W8vMf82XXxjjPR7nf/z9lQoWPTJG+nMRmBDj2CcEq7/nLIExmPv5dgB2m4MieG8wJIzaKfGV4ZtqrzE4ensTk3NdrkcJuo0',
+            'encSecKey': '334cda06516d25aa0ad5b6f74241c9a49ebc0e1370d60aeb54028ae963631a75969a5f922cef267407747d7de18be94900219207bd39145b5ea01ec6349168e1ca73bca54b33a4de71b69e4c0ce0717a4c561bc93592a5e59d67fc4192dd204c19901a142677b624c69fe2b0297423cfef87df955eb071326b00edf3c8be5634'
+        }
+
+        # 获取json格式的评论
+        comments = requests.post(url, data=data, headers=headers)
+        comments.raise_for_status()
+        comments.encoding = comments.apparent_encoding
+        hot_comments = json.loads(str(comments.text)).get("hotComments")
+        hot_comments_book = xlwt.Workbook()
+        hot_comments_sheet = hot_comments_book.add_sheet('sheet1', cell_overwrite_ok=True)
+        hot_comments_sheet.col(0).width = (10 * 256)
+        hot_comments_sheet.col(1).width = (100 * 256)
+        hot_comments_header = ['昵称', '评论内容']
+
+        for hot_comment in hot_comments:
+            nick_name = hot_comment.get("user").get("nickname")
+            content = hot_comment.get("content")
+
+
+# 热歌榜内联链接
 url = "https://music.163.com/discover/toplist?id=3778678"
 
 #添加请求头
@@ -12,6 +56,7 @@ headers = {
     'upgrade-insecure-requests': '1',
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
 }
+
 response = requests.get(url, headers=headers)
 # 检测请求异常
 response.raise_for_status()
@@ -19,6 +64,9 @@ response.encoding = response.apparent_encoding
 html = response.text
 
 soup = BeautifulSoup(html, 'lxml')
+
+update_time = soup.find('span',attrs={'class':'sep s-fc3'}).text
+
 # 内联框架获取到json数据
 json_info = soup.find("textarea", attrs={'id': 'song-list-pre-data'}).text
 # 转为json对象
@@ -36,10 +84,7 @@ sheet1.col(6).width = (30 * 256)
 heads = ['排名', '歌曲名称', '专辑', '时长', '歌手', '链接', '发行时间']
 
 # 写入表头
-column = 0
-for head in heads:
-    sheet1.write(0, column, head)
-    column += 1
+music163.write_book_header(sheet1, heads)
 
 # 写入歌曲信息
 rank = 1
@@ -73,6 +118,9 @@ for song_info in songs_info:
     song_id = song_info.get("id")
     href = "https://music.163.com/song?id="+str(song_id)
     sheet1.write(rank, 5, href)
+
+    # 多线程获取热评数据
+    # 启动线程
     # 发行时间
     t1 = song_info.get("publishTime")
     publish_time = "not exist!"
@@ -82,4 +130,4 @@ for song_info in songs_info:
     rank += 1
     if rank > 51:
         break
-    book.save('hot_top_50.xls')
+book.save('网易云热歌榜TOP50_'+update_time+'.xls')
